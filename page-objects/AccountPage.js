@@ -7,7 +7,15 @@ export class AccountPage {
     this.welcomeMessageHeading = page.getByRole('heading', { name: 'Welcome!', level: 3 });
     this.accountSummaryParagraph = page.getByText('Here is your account summary:');
     this.applyForNewAccountButton = page.getByText('Apply For New Account');
+
+    // Locators specific to "no accounts" state
     this.noAccountsMessage = page.getByText('No accounts at this time, apply for a new account today!');
+
+    // Locators specific to "accounts exist" state
+    // This locator will find all individual account cards
+    this.accountCards = page.locator('.account-card');  
+
+    //this.noAccountsMessage = page.getByText('No accounts at this time, apply for a new account today!');
 
     // Locators for the "How can we help?" section
     this.howCanWeHelpHeading = page.getByRole('heading', { name: 'How can we help?', level: 3 });
@@ -104,10 +112,66 @@ export class AccountPage {
   }
 
   /**
-   * Checks if the "No accounts at this time" message is visible, indicating a first-time user.
+   * Checks if the "No accounts at this time" message is visible.
+   * This indicates the user currently has no accounts.
    * @returns {Promise<boolean>} True if the message is visible, false otherwise.
    */
-  async isFirstTimeUserAccountPage() {
+  async hasNoAccountsMessage() {
     return this.noAccountsMessage.isVisible();
+  }
+
+    /**
+   * Retrieves the count of visible account cards.
+   * @returns {Promise<number>} The number of accounts displayed.
+   */
+  async getNumberOfAccounts() {
+    return this.accountCards.count();
+  }
+
+  /**
+   * Retrieves details for all displayed accounts.
+   * @returns {Promise<Array<{name: string|null, partialId: string|null, balance: string|null, link: string|null}>>}
+   * An array of objects, each representing an account.
+   */
+  async getAllAccountDetails() {
+    const accountDetails = [];
+    const count = await this.accountCards.count();
+
+    for (let i = 0; i < count; i++) {
+      const card = this.accountCards.nth(i);
+      const name = await card.locator('strong').textContent();
+      const partialId = await card.locator('span.text-gray').textContent();
+      const balanceText = await card.locator('.account-detail-right').textContent();
+      // Extract just the balance amount (e.g., remove "Account Balance: \n $")
+      const balance = balanceText ? balanceText.replace(/Account Balance:\s*\n*\s*/, '').trim() : null;
+      const link = await card.locator('a').getAttribute('href');
+
+      accountDetails.push({
+        name: name ? name.trim() : null,
+        partialId: partialId ? partialId.trim() : null,
+        balance: balance,
+        link: link,
+      });
+    }
+    return accountDetails;
+  }
+
+  /**
+   * Clicks on a specific account link by its name.
+   * @param {string} accountName The full name (nickname) of the account to click.
+   * @returns {Promise<void>}
+   */
+  async clickAccountByName(accountName) {
+    // Finds the <a> tag that contains the strong tag with the specified accountName text
+    await this.page.locator(`.account-card:has(strong:text("${accountName}")) a`).click();
+  }
+
+  /**
+   * Checks if a specific account is visible on the summary page.
+   * @param {string} accountName The name of the account to check.
+   * @returns {Promise<boolean>} True if the account is visible, false otherwise.
+   */
+  async isAccountVisible(accountName) {
+    return this.page.locator(`strong:text("${accountName}")`).isVisible();
   }
 }
